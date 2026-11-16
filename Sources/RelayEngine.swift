@@ -251,7 +251,8 @@ final class RelayEngine: NSObject, ObservableObject {
         lastWorkoutAttempt = tick
         let configuration = HKWorkoutConfiguration()
         configuration.activityType = .cycling
-        configuration.locationType = .outdoor
+        // Indoor: the session never asks for location, so it can't wake GPS.
+        configuration.locationType = .indoor
         do {
             let session = try HKWorkoutSession(healthStore: store, configuration: configuration)
             session.delegate = self

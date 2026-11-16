@@ -130,7 +130,7 @@ struct ContentView: View {
             Text("Ride setup").font(.headline)
             Group {
                 Text("1. Start the relay here and allow Health, Bluetooth and Location.")
-                Text("2. On the watch, start an Outdoor Cycle workout in the Workout app.")
+                Text("2. On the watch, start an Indoor Cycle workout in the Workout app. No GPS on the watch or phone; the Edge records the route.")
                 Text("3. First time only: with this app open, pair the Edge with a new heart rate sensor named \"HR Relay\".")
                 Text("4. Lock the phone and ride. If \"Updates while locked\" stays at 0 after a test, use Pocket mode instead.")
             }

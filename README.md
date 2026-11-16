@@ -9,7 +9,7 @@ No account, no server, no time limit.
 ## Ride setup
 
 1. Open HR Relay, tap **Start relay**, allow Health, Bluetooth and Location.
-2. On the watch, start **Outdoor Cycle** in the Workout app.
+2. On the watch, start **Indoor Cycle** in the Workout app. Indoor workouts use no GPS on the watch or the phone; the Edge records the route.
 3. First time only, with HR Relay open on screen: on the Edge, *Sensors → Add Sensor → Heart Rate*, pick **HR Relay**.
 4. Lock the phone and ride.
 
