@@ -3,10 +3,14 @@ import CoreLocation
 import Foundation
 import HealthKit
 import UIKit
+import WatchConnectivity
 
-/// Reads Apple Watch heart rate out of HealthKit (the watch's built-in Workout
-/// app syncs samples to the phone) and re-broadcasts it as a standard BLE Heart
+/// Takes Apple Watch heart rate and re-broadcasts it as a standard BLE Heart
 /// Rate sensor (service 0x180D) that a Garmin Edge pairs with like a chest strap.
+///
+/// Primary source: the HR Relay watch app, which sends each reading over
+/// WatchConnectivity. Fallback: HealthKit on the phone, which on watchOS 8 only
+/// gets the workout's samples after it ends.
 ///
 /// Everything runs on the main queue. Nothing here is hot enough to need more.
 final class RelayEngine: NSObject, ObservableObject {
@@ -23,6 +27,7 @@ final class RelayEngine: NSObject, ObservableObject {
     @Published private(set) var subscriberCount = 0
     @Published private(set) var healthStatus = "Not started"
     @Published private(set) var workoutStatus = "Off"
+    @Published private(set) var watchStatus = "Checking"
     @Published private(set) var locationStatus = "Off"
     @Published private(set) var lockedDeliveries = 0
     @Published private(set) var notificationsSent = 0
@@ -67,6 +72,17 @@ final class RelayEngine: NSObject, ObservableObject {
     private var lastDelivery = Date.distantPast
     private var workoutSession: HKWorkoutSession?
     private var lastWorkoutAttempt = 0
+    /// The system ending the phone session repeatedly means it's losing to
+    /// something (usually the watch's own workout). Stop fighting after three.
+    private var workoutEnds = 0
+    private static let maxWorkoutEnds = 3
+
+    // MARK: Watch link
+
+    private var lastWatchMessage = Date.distantPast
+    private var watchAppInstalled: Bool {
+        WCSession.isSupported() && WCSession.default.activationState == .activated && WCSession.default.isWatchAppInstalled
+    }
 
     // MARK: Location keep-alive
 
@@ -85,6 +101,10 @@ final class RelayEngine: NSObject, ObservableObject {
             Self.useLocationKey: true,
         ])
         locationManager.delegate = self
+        if WCSession.isSupported() {
+            WCSession.default.delegate = self
+            WCSession.default.activate()
+        }
         // Created at launch, not on Start: a relaunch by Core Bluetooth state
         // restoration only hands the services back to a manager that exists.
         peripheral = CBPeripheralManager(delegate: self, queue: nil, options: [
@@ -126,7 +146,12 @@ final class RelayEngine: NSObject, ObservableObject {
                 self.healthStatus = ok ? "Waiting for watch samples" : "Access denied"
                 guard ok else { return }
                 self.startHeartRateQueries()
-                if UserDefaults.standard.bool(forKey: Self.useWorkoutKey) { self.startWorkoutSession() }
+                self.workoutEnds = 0
+                if self.watchAppInstalled {
+                    self.launchWatchWorkout()
+                } else if UserDefaults.standard.bool(forKey: Self.useWorkoutKey) {
+                    self.startWorkoutSession()
+                }
             }
         }
     }
@@ -138,6 +163,9 @@ final class RelayEngine: NSObject, ObservableObject {
 
         ticker?.cancel()
         ticker = nil
+        if WCSession.isSupported(), WCSession.default.activationState == .activated, WCSession.default.isReachable {
+            WCSession.default.sendMessage(["cmd": "stop"], replyHandler: nil, errorHandler: nil)
+        }
         stopHeartRateQueries()
         stopWorkoutSession()
         stopLocation()
@@ -238,6 +266,49 @@ final class RelayEngine: NSObject, ObservableObject {
             sampleSource = newest.sourceRevision.source.name
             healthStatus = "Receiving"
             broadcast()
+        }
+    }
+
+    // MARK: Watch link
+
+    /// Opens HR Relay on the watch and starts its workout, so one tap on the
+    /// phone starts everything. Needs the watch awake and on the wrist.
+    private func launchWatchWorkout() {
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .cycling
+        configuration.locationType = .indoor
+        store.startWatchApp(with: configuration) { [weak self] ok, error in
+            DispatchQueue.main.async {
+                self?.note(ok ? "Watch workout launched" : "Watch launch failed, start it on the watch: \(error?.localizedDescription ?? "unknown")")
+            }
+        }
+    }
+
+    private func ingestWatch(bpm newBPM: Int, at date: Date) {
+        guard running else { return }
+        lastWatchMessage = Date()
+        if !UIApplication.shared.isProtectedDataAvailable { lockedDeliveries += 1 }
+        if watchStatus != "Live" { watchStatus = "Live" }
+        if let sampleDate, date < sampleDate { return }
+        bpm = newBPM
+        sampleDate = date
+        sampleSource = "watch app"
+        broadcast()
+    }
+
+    private func refreshWatchStatus() {
+        guard WCSession.isSupported() else { watchStatus = "Unsupported"; return }
+        let link = WCSession.default
+        if Date().timeIntervalSince(lastWatchMessage) < 15 {
+            watchStatus = "Live"
+        } else if link.activationState != .activated {
+            watchStatus = "Connecting"
+        } else if !link.isPaired {
+            watchStatus = "No watch paired"
+        } else if !link.isWatchAppInstalled {
+            watchStatus = "App not installed"
+        } else {
+            watchStatus = running ? "Waiting for watch" : "Installed"
         }
     }
 
@@ -369,6 +440,7 @@ final class RelayEngine: NSObject, ObservableObject {
         broadcast()
 
         guard tick % 5 == 0 else { return }
+        refreshWatchStatus()
         if healthAuthorized, anchoredQuery == nil { startHeartRateQueries() }
         if healthAuthorized, Date().timeIntervalSince(lastDelivery) > Self.pollAfterSilence { pollLatest() }
         if peripheral.state == .poweredOn {
@@ -377,6 +449,8 @@ final class RelayEngine: NSObject, ObservableObject {
         if healthAuthorized,
            UserDefaults.standard.bool(forKey: Self.useWorkoutKey),
            workoutSession == nil,
+           !watchAppInstalled,
+           workoutEnds < Self.maxWorkoutEnds,
            tick - lastWorkoutAttempt >= Self.workoutRetryInterval {
             startWorkoutSession()
         }
@@ -491,9 +565,10 @@ extension RelayEngine: HKWorkoutSessionDelegate {
             case .running:
                 workoutStatus = "Active"
             case .ended, .stopped:
-                workoutStatus = "Ended, restarting"
                 self.workoutSession = nil
-                note("Workout session ended by the system")
+                workoutEnds += 1
+                workoutStatus = workoutEnds < Self.maxWorkoutEnds ? "Ended, restarting" : "Ended by system"
+                note("Workout session ended by the system (\(workoutEnds)/\(Self.maxWorkoutEnds))")
             default:
                 workoutStatus = "Starting"
             }
@@ -507,6 +582,32 @@ extension RelayEngine: HKWorkoutSessionDelegate {
             workoutStatus = "Failed, retrying"
             note("Workout session error: \(error.localizedDescription)")
         }
+    }
+}
+
+// MARK: - WCSessionDelegate
+
+extension RelayEngine: WCSessionDelegate {
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        DispatchQueue.main.async { self.refreshWatchStatus() }
+    }
+
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+
+    /// Fires when the phone switches to a different watch. The new pairing
+    /// needs its own activation.
+    func sessionDidDeactivate(_ session: WCSession) {
+        session.activate()
+    }
+
+    func sessionWatchStateDidChange(_ session: WCSession) {
+        DispatchQueue.main.async { self.refreshWatchStatus() }
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard let value = message["bpm"] as? Int else { return }
+        let date = (message["t"] as? Double).map(Date.init(timeIntervalSince1970:)) ?? Date()
+        DispatchQueue.main.async { self.ingestWatch(bpm: value, at: date) }
     }
 }
 

@@ -60,6 +60,13 @@ jobs:
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             2>&1 | tee build.log
 
+      # Built on its own, not as an iOS dependency: -sdk iphoneos would force
+      # the watch target onto the iOS SDK.
+      - name: Build watch app (Release, watchOS, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build             -project HRRelay.xcodeproj             -scheme HRRelayWatch             -configuration Release             -destination 'generic/platform=watchOS'             -derivedDataPath build             CODE_SIGN_IDENTITY=""             CODE_SIGNING_REQUIRED=NO             CODE_SIGNING_ALLOWED=NO             CODE_SIGN_ENTITLEMENTS=""             CODE_SIGN_STYLE=Manual             DEVELOPMENT_TEAM=""             ONLY_ACTIVE_ARCH=NO             CURRENT_PROJECT_VERSION=${{ github.run_number }}             2>&1 | tee -a build.log
+
       - name: Surface compiler errors
         if: failure()
         run: |

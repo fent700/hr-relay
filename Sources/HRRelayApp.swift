@@ -106,7 +106,8 @@ struct ContentView: View {
         Card {
             StatusRow(name: "Bluetooth", value: engine.advertising ? "Broadcasting" : engine.bluetoothStatus, good: engine.advertising)
             StatusRow(name: "Connected devices", value: "\(engine.subscriberCount)", good: engine.subscriberCount > 0)
-            StatusRow(name: "Health", value: engine.healthStatus, good: engine.healthStatus == "Receiving")
+            StatusRow(name: "Watch app", value: engine.watchStatus, good: engine.watchStatus == "Live")
+            StatusRow(name: "Health (fallback)", value: engine.healthStatus, good: engine.healthStatus == "Receiving")
             StatusRow(name: "Workout keep-alive", value: engine.workoutStatus, good: engine.workoutStatus == "Active")
             StatusRow(name: "Location keep-alive", value: engine.locationStatus, good: engine.locationStatus == "Active")
             StatusRow(name: "Updates while locked", value: "\(engine.lockedDeliveries)", good: engine.lockedDeliveries > 0)
@@ -129,10 +130,10 @@ struct ContentView: View {
         Card {
             Text("Ride setup").font(.headline)
             Group {
-                Text("1. Start the relay here and allow Health, Bluetooth and Location.")
-                Text("2. On the watch, start an Indoor Cycle workout in the Workout app. No GPS on the watch or phone; the Edge records the route.")
+                Text("1. Once: in the iPhone Watch app, install HR Relay on the watch, open it there and allow Health.")
+                Text("2. Wake the watch, then tap Start relay here. The watch workout starts by itself; if it doesn't, tap Start on the watch.")
                 Text("3. First time only: with this app open, pair the Edge with a new heart rate sensor named \"HR Relay\".")
-                Text("4. Lock the phone and ride. If \"Updates while locked\" stays at 0 after a test, use Pocket mode instead.")
+                Text("4. Lock the phone and ride. Stop relay here also ends the watch workout.")
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
