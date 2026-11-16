@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>HR Relay</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>arm64</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-peripheral</string>
+		<string>location</string>
+		<string>workout-processing</string>
+	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>HR Relay broadcasts your Apple Watch heart rate to your bike computer as a Bluetooth heart rate sensor.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>HR Relay broadcasts your Apple Watch heart rate to your bike computer as a Bluetooth heart rate sensor.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>HR Relay reads the heart rate your Apple Watch records during a workout so it can pass it to your bike computer.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>HR Relay runs a workout session on the phone to stay awake while locked. It never saves a workout.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Low-accuracy location keeps HR Relay running while your phone is locked. Your location is never stored or sent anywhere.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Low-accuracy location keeps HR Relay running while your phone is locked. Your location is never stored or sent anywhere.</string>
+</dict>
+</plist>

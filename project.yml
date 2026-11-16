@@ -1,0 +1,43 @@
+name: HRRelay
+options:
+  bundleIdPrefix: com.hrrelay
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+# Declared explicitly: Xcode's auto-created scheme lives in xcuserdata, which a
+# fresh CI checkout doesn't have.
+schemes:
+  HRRelay:
+    build:
+      targets:
+        HRRelay: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+targets:
+  HRRelay:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hrrelay.app
+        PRODUCT_NAME: HRRelay
+        INFOPLIST_FILE: Support/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Support/HRRelay.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
