@@ -63,7 +63,7 @@ actor SyncEngine {
         Array(entries.values.sorted { $0.workoutStart > $1.workoutStart }.prefix(limit))
     }
 
-    func sync() async -> SyncReport {
+    func sync(progress: (@Sendable (Int, Int) -> Void)? = nil) async -> SyncReport {
         guard !running else { return SyncReport(message: "A sync is already running.") }
         running = true
         defer { running = false }
@@ -91,8 +91,9 @@ actor SyncEngine {
         }
 
         var report = SyncReport()
-        for w in pending {
+        for (index, w) in pending.enumerated() {
             if Task.isCancelled { break }
+            progress?(index + 1, pending.count)
             let name = w.workoutActivityType.displayName
 
             if w.sourceRevision.source.bundleIdentifier.lowercased().contains("garmin") {
@@ -113,10 +114,15 @@ actor SyncEngine {
                     record(w, .uploaded, id.map { "Garmin activity \($0)" } ?? "Uploaded")
                     garmin.append(GarminActivity(id: id ?? 0, start: w.startDate, duration: w.duration))
                     report.uploaded += 1
+                    // Pace uploads so a large backfill doesn't trip Garmin's rate limits.
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
                 case .duplicate:
                     record(w, .duplicate, "Garmin reported a duplicate")
                     report.duplicates += 1
                 }
+            } catch GarminError.rateLimited {
+                report.message = GarminError.rateLimited.errorDescription
+                break  // remaining workouts stay pending and resume next sync
             } catch {
                 record(w, .failed, error.localizedDescription)
                 report.failed += 1

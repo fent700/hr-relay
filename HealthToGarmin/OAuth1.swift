@@ -31,11 +31,13 @@ enum OAuth1 {
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         for item in comps?.queryItems ?? [] { all.append((item.name, item.value ?? "")) }
 
-        let paramString = all
-            .map { (encode($0.0), encode($0.1)) }
-            .sorted { $0.0 == $1.0 ? $0.1 < $1.1 : $0.0 < $1.0 }
-            .map { "\($0.0)=\($0.1)" }
-            .joined(separator: "&")
+        let encoded: [(String, String)] = all.map { pair in (encode(pair.0), encode(pair.1)) }
+        let sorted: [(String, String)] = encoded.sorted { (a: (String, String), b: (String, String)) -> Bool in
+            if a.0 == b.0 { return a.1 < b.1 }
+            return a.0 < b.0
+        }
+        let pieces: [String] = sorted.map { pair in pair.0 + "=" + pair.1 }
+        let paramString: String = pieces.joined(separator: "&")
 
         var base = URLComponents()
         base.scheme = comps?.scheme

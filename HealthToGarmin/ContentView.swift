@@ -44,7 +44,15 @@ final class AppModel: ObservableObject {
     }
 
     func syncNow() async {
-        await run { self.status = await SyncEngine.shared.sync().summary }
+        // Keep the screen on so iOS doesn't suspend a long backfill.
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer { UIApplication.shared.isIdleTimerDisabled = false }
+        await run {
+            let report = await SyncEngine.shared.sync { done, total in
+                Task { @MainActor in self.status = "Working on \(done) of \(total)…" }
+            }
+            self.status = report.summary
+        }
     }
 
     func logout() async {
@@ -118,7 +126,7 @@ struct ContentView: View {
                 } header: {
                     Text("Sync")
                 } footer: {
-                    Text("Syncs automatically when Apple Health gets a new workout. Workouts already in Garmin Connect are skipped.")
+                    Text("Syncs automatically when Apple Health gets a new workout. To upload old workouts, pick an earlier date and tap Sync now; keep the app open until it finishes. Workouts already in Garmin Connect are skipped.")
                 }
 
                 Section("History") {

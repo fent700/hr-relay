@@ -13,13 +13,14 @@ enum LoginResult { case success, needsMFA }
 enum UploadResult { case uploaded(activityId: Int?), duplicate }
 
 enum GarminError: LocalizedError {
-    case loginFailed(String), notLoggedIn, http(Int, String), parse(String)
+    case loginFailed(String), notLoggedIn, http(Int, String), parse(String), rateLimited
     var errorDescription: String? {
         switch self {
         case .loginFailed(let m): return "Garmin sign-in failed: \(m)"
         case .notLoggedIn: return "Not signed in to Garmin."
         case .http(let code, let body): return "Garmin returned HTTP \(code). \(body)"
         case .parse(let m): return "Unexpected Garmin response: \(m)"
+        case .rateLimited: return "Garmin is rate-limiting uploads — the rest will continue on the next sync."
         }
     }
 }
@@ -211,6 +212,7 @@ actor GarminClient {
         if http.statusCode == 409 || text.localizedCaseInsensitiveContains("duplicate") {
             return .duplicate
         }
+        if http.statusCode == 429 { throw GarminError.rateLimited }
         guard (200..<300).contains(http.statusCode) else { throw GarminError.http(http.statusCode, snippet(data)) }
 
         var id: Int?
